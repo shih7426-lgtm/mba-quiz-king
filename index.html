@@ -4,7 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MBA刷题王 - 北大备考·夫妻PK版</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// 动态加载Supabase SDK（多CDN容错，国内友好）
+(function(){
+  var cdns=[
+    'https://cdn.bootcdn.net/ajax/libs/supabase-js/2.39.8/supabase.min.js',
+    'https://unpkg.com/@supabase/supabase-js@2',
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+  ];
+  function tryLoad(i){
+    if(i>=cdns.length){ console.warn('[Cloud] Supabase SDK加载失败，使用本地模式'); return; }
+    var s=document.createElement('script');
+    s.src=cdns[i];
+    s.onload=function(){ console.log('[Cloud] Supabase SDK loaded from',cdns[i]); };
+    s.onerror=function(){ tryLoad(i+1); };
+    document.head.appendChild(s);
+  }
+  tryLoad(0);
+})();
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -3724,9 +3742,13 @@ const SUPABASE_URL = 'https://didlzynyavsavtfvliksg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpZGl6eW55YXZzd2Z0dmlsa3NnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyMjM4ODMsImV4cCI6MjA5Njc5OTg4M30.8lzpb6kaUa9i5V_v4N12Wye7cL61utRHiy3CtVV3Qtk';
 
 let _supabase = null;
+let _supabaseAvailable = false;
 function getSupabase() {
   if (!_supabase && window.supabase) {
-    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    try {
+      _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      _supabaseAvailable = true;
+    } catch(e) { console.warn('[Cloud] createClient failed:', e.message); }
   }
   return _supabase;
 }
@@ -3749,6 +3771,7 @@ async function handleSignUp() {
   if (password.length < 6) { if(errEl) errEl.textContent = '密码至少6位'; return; }
   try {
     const sb = getSupabase();
+    if (!sb || !window.supabase) { throw new Error('云端服务未连接，请检查网络后重试'); }
     const { data, error } = await sb.auth.signUp({ email, password, options: { data: { nickname } } });
     if (error) throw error;
     // Create profile immediately
@@ -3771,6 +3794,7 @@ async function handleSignIn() {
   if (!email || !password) { if(errEl) errEl.textContent = '请填写邮箱和密码'; return; }
   try {
     const sb = getSupabase();
+    if (!sb || !window.supabase) { throw new Error('云端服务未连接，请检查网络后重试'); }
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
     closeModal();
@@ -4042,7 +4066,8 @@ async function initSupabaseSession(){
 
 // ==================== INIT ====================
 render();
-initSupabaseSession();
+// 延迟初始化云端（给CDN加载留时间）
+setTimeout(function(){ initSupabaseSession(); }, 1500);
 </script>
 </body>
 </html>
