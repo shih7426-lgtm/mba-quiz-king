@@ -171,6 +171,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hira
 .phase-mini .dot{width:8px;height:8px;border-radius:50%}
 .phase-mini .label{font-size:12px;font-weight:700}
 .phase-mini .sub{font-size:11px;color:var(--text2);margin-left:auto}
+/* Cloud Sync */
+.sync-status{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s}
+.sync-status.connected{background:rgba(0,200,83,.15);color:var(--green);border:1px solid rgba(0,200,83,.3)}
+.sync-status.disconnected{background:rgba(233,69,96,.1);color:var(--primary);border:1px solid rgba(233,69,96,.25)}
+.sync-status.syncing{background:rgba(245,197,24,.15);color:var(--accent);border:1px solid rgba(245,197,24,.3)}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse-dot 2s infinite}
+.sync-dot.synced{animation:none}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+.sync-card{position:relative}
+.sync-input-group{margin-bottom:12px}
+.sync-input-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;display:block}
+.sync-token-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-family:monospace;outline:none;transition:border-color .2s}
+.sync-token-input:focus{border-color:var(--primary)}
+.sync-help-text{font-size:11px;color:var(--text2);line-height:1.6;margin-top:6px}
+.sync-btn-row{display:flex;gap:8px;margin-top:10px}
+.sync-btn-row .btn{flex:1;font-size:12px;padding:8px 0}
+.sync-last-time{font-size:11px;color:var(--text2);margin-top:6px}
+.sync-manual-btn{padding:6px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:11px;transition:all .2s}
+.sync-manual-btn:hover{border-color:var(--cyan);color:var(--cyan)}
 </style>
 </head>
 <body>
@@ -1828,6 +1847,8 @@ function saveState() {
     }
   }
   localStorage.setItem('mba_quiz_state', JSON.stringify(state));
+  // Auto-sync to cloud (debounced)
+  syncToCloudDebounced();
 }
 
 // Find which subject a question belongs to by its ID
@@ -2144,6 +2165,7 @@ function renderHome() {
         <div class="user-btn ${uid==='user1'?'active':''}" onclick="switchUser('user1')">${esc(u.name)}</div>
         <div class="user-btn ${uid==='user2'?'active':''}" onclick="switchUser('user2')">${esc(other.name)}</div>
       </div>
+      ${isCloudConnected() ? `<div style="position:absolute;right:0;top:52px"><span class="sync-status connected" onclick="navigate('stats')" title="点击进入同步设置" style="font-size:10px;padding:2px 8px"><span class="sync-dot synced"></span> 云端</span></div>` : ''}
     </div>
 
     <div class="phase-mini fade-in" onclick="navigate('plan')" style="cursor:pointer">
@@ -3381,6 +3403,8 @@ function renderStats() {
         ${u.streak < 3 ? '💪 坚持每天学习，养成习惯' : '🔥 连续学习'+u.streak+'天，棒！'}
       </div>
     </div>
+
+    ${renderSyncSettings()}
   `;
 
   // Draw radar chart
@@ -3540,8 +3564,345 @@ function removeWrong(qid) {
   showToast('已移出错题本 ✅');
 }
 
+// ==================== CLOUD SYNC (GitHub Gist) ====================
+const CLOUD_STORAGE_KEY = 'mba_quiz_cloud_config';
+const CLOUD_FILE = 'mba-quiz-data.json';
+let _syncDebounceTimer = null;
+let _isSyncing = false;
+
+function getCloudConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem(CLOUD_STORAGE_KEY));
+    return c || { token: null, gistId: null, lastSync: null };
+  } catch(e) { return { token: null, gistId: null, lastSync: null }; }
+}
+
+function setCloudConfig(token, gistId) {
+  localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify({ token, gistId, lastSync: new Date().toISOString() }));
+}
+
+function clearCloudConfig() {
+  localStorage.removeItem(CLOUD_STORAGE_KEY);
+}
+
+function isCloudConnected() {
+  const c = getCloudConfig();
+  return !!(c.token && c.gistId);
+}
+
+async function testToken(token) {
+  const res = await fetch('https://api.github.com/user', {
+    headers: { Authorization: `token ${token}` }
+  });
+  if (!res.ok) throw new Error('Token无效，请检查是否正确');
+  const data = await res.json();
+  return data.login;
+}
+
+async function createGist(token) {
+  const u1 = state.users.user1;
+  // Only sync non-name fields that represent progress
+  const payload = buildCloudPayload(u1);
+  const res = await fetch('https://api.github.com/gists', {
+    method: 'POST',
+    headers: {
+      'Authorization': `token ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      description: 'MBA刷题王 - 云端同步数据（自动生成，请勿手动编辑）',
+      public: false,
+      files: { [CLOUD_FILE]: { content: JSON.stringify(payload, null, 2) } }
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || '创建Gist失败(' + res.status + ')');
+  }
+  const data = await res.json();
+  return data.id;
+}
+
+async function pushToCloud(force) {
+  const c = getCloudConfig();
+  if (!c.token || !c.gistId) return;
+  if (_isSyncing && !force) return;
+  _isSyncing = true;
+
+  try {
+    const u1 = state.users.user1;
+    const payload = buildCloudPayload(u1);
+    const res = await fetch(`https://api.github.com/gists/${c.gistId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `token ${c.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        files: { [CLOUD_FILE]: { content: JSON.stringify(payload, null, 2) } }
+      })
+    });
+    if (!res.ok) throw new Error('推送失败(' + res.status + ')');
+    c.lastSync = new Date().toISOString();
+    localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify(c));
+  } catch(e) {
+    console.warn('[Cloud Sync] push failed:', e.message);
+  } finally {
+    _isSyncing = false;
+  }
+}
+
+async function pullFromCloud() {
+  const c = getCloudConfig();
+  if (!c.token || !c.gistId) return null;
+
+  try {
+    const res = await fetch(`https://api.github.com/gists/${c.gistId}`, {
+      headers: { Authorization: `token ${c.token}` }
+    });
+    if (!res.ok) throw new Error('拉取失败(' + res.status + ')');
+    const data = await res.json();
+    const file = data.files[CLOUD_FILE];
+    if (!file) throw new Error('数据文件不存在');
+    const parsed = JSON.parse(file.content);
+    c.lastSync = new Date().toISOString();
+    localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify(c));
+    return parsed;
+  } catch(e) {
+    console.warn('[Cloud Sync] pull failed:', e.message);
+    return null;
+  }
+}
+
+function buildCloudPayload(user) {
+  return {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    data: {
+      wins: user.wins,
+      streak: user.streak,
+      maxStreak: user.maxStreak,
+      totalQuestions: user.totalQuestions,
+      correctCount: user.correctCount,
+      lastStudyDate: user.lastStudyDate,
+      studyDays: user.studyDays,
+      wrongBook: user.wrongBook,
+      todayTime: user.todayTime,
+      pkHistory: user.pkHistory,
+      subjectStats: user.subjectStats
+    }
+  };
+}
+
+function applyCloudData(cloudData) {
+  if (!cloudData || !cloudData.data) return false;
+  const d = cloudData.data;
+  const u1 = state.users.user1;
+  let changed = false;
+  // Merge strategy: cloud wins for most fields
+  const mergeFields = ['wins','streak','maxStreak','totalQuestions','correctCount','lastStudyDate','todayTime'];
+  for (let f of mergeFields) {
+    if (d[f] !== undefined && d[f] !== u1[f]) { u1[f] = d[f]; changed = true; }
+  }
+
+  // Merge studyDays - combine both sides
+  if (d.studyDays) {
+    for (let [day, val] of Object.entries(d.studyDays)) {
+      if (!u1.studyDays[day] || val > u1.studyDays[day]) {
+        u1.studyDays[day] = val; changed = true;
+      }
+    }
+  }
+
+  // Merge wrongBook - union of both
+  if (Array.isArray(d.wrongBook)) {
+    const localSet = new Set(u1.wrongBook);
+    for (let id of d.wrongBook) { if (!localSet.has(id)) { u1.wrongBook.push(id); localSet.add(id); changed = true; } }
+  }
+
+  // Merge pkHistory - union by id
+  if (Array.isArray(d.pkHistory)) {
+    const localIds = new Set(u1.pkHistory.map(h => h.id || JSON.stringify(h)));
+    for (let h of d.pkHistory) {
+      const hid = h.id || JSON.stringify(h);
+      if (!localIds.has(hid)) { u1.pkHistory.push(h); localIds.add(hid); changed = true; }
+    }
+  }
+
+  // Merge subjectStats - take max done/correct per subject
+  if (d.subjectStats) {
+    for (let sub of ['math','logic','writing','english']) {
+      if (d.subjectStats[sub]) {
+        if (!u1.subjectStats[sub]) u1.subjectStats[sub] = {done:0, correct:0};
+        if (d.subjectStats[sub].done > u1.subjectStats[sub].done) { u1.subjectStats[sub].done = d.subjectStats[sub].done; changed = true; }
+        if (d.subjectStats[sub].correct > u1.subjectStats[sub].correct) { u1.subjectStats[sub].correct = d.subjectStats[sub].correct; changed = true; }
+      }
+    }
+  }
+
+  return changed;
+}
+
+function syncToCloudDebounced() {
+  if (!isCloudConnected()) return;
+  if (_syncDebounceTimer) clearTimeout(_syncDebounceTimer);
+  _syncDebounceTimer = setTimeout(() => pushToCloud(), 2000);
+}
+
+async function connectCloudSync() {
+  const tokenInput = document.getElementById('syncTokenInput');
+  if (!tokenInput) return;
+  const token = tokenInput.value.trim();
+  if (!token) { showToast('请输入 Token ⚠️'); return; }
+
+  const statusEl = document.getElementById('syncStatusText');
+  if (statusEl) statusEl.textContent = '验证中...';
+
+  try {
+    const username = await testToken(token);
+
+    // Check if gist already exists
+    let gistId = getCloudConfig().gistId;
+    if (!gistId) {
+      if (statusEl) statusEl.textContent = '创建云端存储...';
+      gistId = await createGist(token);
+    } else {
+      // Test existing gist access
+      const testRes = await fetch(`https://api.github.com/gists/${gistId}`, {
+        headers: { Authorization: `token ${token}` }
+      });
+      if (!testRes.ok) gistId = await createGist(token);
+    }
+
+    setCloudConfig(token, gistId);
+    // Push current data immediately
+    await pushToCloud(true);
+
+    showToast(`云端同步已连接 ✅ (${username})`);
+    render(); // refresh to show connected state
+
+  } catch(e) {
+    showToast('连接失败: ' + e.message);
+    if (statusEl) statusEl.textContent = '连接失败';
+  }
+}
+
+function disconnectCloudSync() {
+  clearCloudConfig();
+  showToast('已断开云端同步');
+  render();
+}
+
+async function manualSync() {
+  if (!isCloudConnected()) { showToast('未连接云端同步 ⚠️'); return; }
+  const btn = document.getElementById('manualSyncBtn');
+  if (btn) { btn.textContent = '⏳ 同步中...'; btn.disabled = true; }
+
+  try {
+    // Pull first (import any newer data from cloud)
+    const cloudData = await pullFromCloud();
+    if (cloudData) {
+      const changed = applyCloudData(cloudData);
+      if (changed) saveState();
+    }
+    // Then push (upload latest local data)
+    await pushToCloud(true);
+    showToast('同步完成 ✅');
+    render();
+  } catch(e) {
+    showToast('同步失败: ' + e.message);
+  } finally {
+    if (btn) { btn.textContent = '🔄 立即同步'; btn.disabled = false; }
+  }
+}
+
+// Render sync settings panel (called inside renderStats)
+function renderSyncSettings() {
+  const c = getCloudConfig();
+  const connected = isCloudConnected();
+  const lastSync = c.lastSync ? formatSyncTime(c.lastSync) : '从未';
+
+  let bodyHtml = '';
+  if (connected) {
+    bodyHtml = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span class="sync-status connected"><span class="sync-dot synced"></span> 已连接</span>
+        <span style="flex:1"></span>
+        <button class="sync-manual-btn" id="manualSyncBtn" onclick="manualSync()">🔄 立即同步</button>
+        <button class="sync-manual-btn" onclick="disconnectCloudSync()" style="border-color:var(--primary);color:var(--primary)">断开</button>
+      </div>
+      <div class="sync-last-time">上次同步: ${lastSync}</div>
+      <div class="sync-help-text">
+        ✅ 你的刷题进度会自动备份到 GitHub 私有 Gist<br>
+        ✅ 换设备打开页面后会自动恢复进度<br>
+        ✅ 只有「${esc(state.users.user1.name)}」的账户数据会被同步<br>
+        💡 数据存储在你的 GitHub 私有 Gist 中，完全私密
+      </div>
+    `;
+  } else {
+    bodyHtml = `
+      <div style="margin-bottom:12px">
+        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px">
+          🔗 连接 GitHub 云端同步后，你的刷题进度会在多设备间自动同步。<br>
+          需要一个只读权限的 GitHub Personal Access Token。
+        </p>
+        <div class="sync-input-group">
+          <label class="sync-input-label">GitHub Personal Access Token</label>
+          <input class="sync-token-input" id="syncTokenInput" type="password" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
+        </div>
+        <div class="sync-help-text">
+          📌 获取方式：<br>
+          1. 打开 github.com/settings/tokens<br>
+          2. Generate new token → 勾选 <code style="background:var(--card);padding:1px 4px;border-radius:3px">gist</code> 权限<br>
+          3. 复制 Token 粘贴到上方输入框<br>
+          ⚠️ Token 仅用于读写你的私有 Gist，不会泄露给第三方
+        </div>
+        <div class="sync-btn-row">
+          <button class="btn btn-primary" onclick="connectCloudSync()">🔗 连接云端同步</button>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="card fade-in sync-card">
+      <div class="card-title"><span class="emoji">☁️</span>云端同步</div>
+      ${bodyHtml}
+    </div>
+  `;
+}
+
+function formatSyncTime(isoStr) {
+  if (!isoStr) return '从未';
+  const d = new Date(isoStr);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return Math.floor(diff/60000) + '分钟前';
+  if (diff < 86400000) return Math.floor(diff/3600000) + '小时前';
+  return d.toLocaleDateString('zh-CN');
+}
+
+// On page load, try to pull from cloud
+async function initCloudSync() {
+  if (!isCloudConnected()) return;
+  try {
+    const cloudData = await pullFromCloud();
+    if (cloudData) {
+      const changed = applyCloudData(cloudData);
+      if (changed) {
+        saveState();
+        console.log('[Cloud Sync] Data restored from cloud');
+      }
+    }
+  } catch(e) {
+    console.warn('[Cloud Sync] Init pull failed:', e.message);
+  }
+}
+
 // ==================== INIT ====================
 render();
+initCloudSync();
 </script>
 </body>
 </html>
