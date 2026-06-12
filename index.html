@@ -2212,7 +2212,9 @@ function renderHome() {
         <div class="user-btn ${uid==='user1'?'active':''}" onclick="switchUser('user1')">${esc(u.name)}</div>
         <div class="user-btn ${uid==='user2'?'active':''}" onclick="switchUser('user2')">${esc(other.name)}</div>
       </div>
-      ${isCloudLoggedIn() ? `<div style="position:absolute;right:0;top:52px"><span class="sync-status connected" onclick="navigate('stats')" title="已登录云端账户" style="font-size:10px;padding:2px 8px;cursor:pointer"><span class="sync-dot synced"></span> ${esc(cloudProfile?.nickname||'云端')}</span></div>` : `<button style="position:absolute;right:0;top:48px;padding:4px 12px;border-radius:16px;border:1px solid var(--cyan);background:rgba(0,188,212,.1);color:var(--cyan);cursor:pointer;font-size:11px;font-weight:600" onclick="showLoginModal('signin')">☁️ 登录</button>`}
+      <div style="margin-top:8px;text-align:center">
+        ${isCloudLoggedIn() ? `<span class="sync-status connected" onclick="navigate('stats')" title="已登录云端账户" style="cursor:pointer;font-size:11px;padding:4px 12px"><span class="sync-dot synced"></span> ${esc(cloudProfile?.nickname||'云端')} ✓</span>` : `<button onclick="showLoginModal('signin')" style="padding:5px 16px;border-radius:14px;border:1px solid var(--cyan);background:rgba(0,188,212,.12);color:var(--cyan);cursor:pointer;font-size:12px;font-weight:700">☁️ 登录 / 注册</button>`}
+      </div>
     </div>
 
     <div class="phase-mini fade-in" onclick="navigate('plan')" style="cursor:pointer">
