@@ -5,22 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MBA刷题王 - 北大备考·夫妻PK版</title>
 <script>
-// 动态加载Supabase SDK（多级CDN容错）
-(function(){
+// 云端SDK延迟加载（不阻塞页面渲染）
+window._cloudReady = false;
+setTimeout(function(){
   var cdns=[
     'https://unpkg.com/@supabase/supabase-js@2',
     'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
   ];
   function tryLoad(i){
-    if(i>=cdns.length){ console.warn('[Cloud] Supabase SDK全部CDN失败，使用本地模式'); window._cloudSDKFailed=true; return; }
+    if(i>=cdns.length){ console.warn('[Cloud] CDN全部失败，本地模式'); return; }
     var s=document.createElement('script');
     s.src=cdns[i];
-    s.onload=function(){ console.log('[Cloud] Supabase SDK OK:',cdns[i]); window._cloudSDKOK=true; };
-    s.onerror=function(){ console.warn('[Cloud] CDN失败:',cdns[i]); tryLoad(i+1); };
+    s.onload=function(){ console.log('[Cloud] SDK OK'); window._cloudReady=true; };
+    s.onerror=function(){ tryLoad(i+1); };
     document.head.appendChild(s);
   }
   tryLoad(0);
-})();
+}, 2000); // 页面渲染完2秒后再尝试加载SDK
 </script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -2212,7 +2213,7 @@ function renderHome() {
         <div class="user-btn ${uid==='user2'?'active':''}" onclick="switchUser('user2')">${esc(other.name)}</div>
       </div>
       <div style="margin-top:8px;text-align:center">
-        ${isCloudLoggedIn() ? `<span class="sync-status connected" onclick="navigate('stats')" title="已登录云端账户" style="cursor:pointer;font-size:11px;padding:4px 12px"><span class="sync-dot synced"></span> ${esc(cloudProfile?.nickname||'云端')} ✓</span>` : `<button onclick="showLoginModal('signin')" style="padding:5px 16px;border-radius:14px;border:1px solid var(--cyan);background:rgba(0,188,212,.12);color:var(--cyan);cursor:pointer;font-size:12px;font-weight:700">☁️ 登录 / 注册</button>`}
+        ${isCloudLoggedIn() ? `<span class="sync-status connected" onclick="navigate('stats')" title="已登录云端账户" style="cursor:pointer;font-size:11px;padding:4px 12px"><span class="sync-dot synced"></span> ${esc(cloudProfile?.nickname||'云端')} ✓</span>` : `<button onclick="safeShowLogin('signin')" style="padding:5px 16px;border-radius:14px;border:1px solid var(--cyan);background:rgba(0,188,212,.12);color:var(--cyan);cursor:pointer;font-size:12px;font-weight:700">☁️ 登录 / 注册</button>`}
       </div>
     </div>
 
@@ -3703,8 +3704,8 @@ async function renderAccountPanel() {
           💡 注册/登录只需要邮箱 + 昵称，30秒搞定。
         </div>
         <div class="auth-btn-row" style="margin-top:0">
-          <button class="btn btn-primary" onclick="showLoginModal('signin')">🔑 登录</button>
-          <button class="btn" onclick="showLoginModal('signup')" style="background:var(--card2);border-color:var(--border)">📝 注册</button>
+          <button class="btn btn-primary" onclick="safeShowLogin('signin')">🔑 登录</button>
+          <button class="btn" onclick="safeShowLogin('signup')" style="background:var(--card2);border-color:var(--border)">📝 注册</button>
         </div>
         <div class="sync-help-text" style="margin-top:10px">
           当前为本地模式，数据仅保存在本设备浏览器中。
@@ -3853,7 +3854,18 @@ async function getCurrentSession() {
   return session;
 }
 
-function isCloudLoggedIn() { return !!cloudUser; }
+function isCloudLoggedIn() { try { return !!cloudUser; } catch(e) { return false; } }
+
+// 安全的登录弹窗（即使SDK没加载也能打开）
+function safeShowLogin(mode){
+  if(!window._cloudReady && !window.supabase){
+    showToast('⏳ 云端服务正在连接中，请稍后再试...');
+    // 3秒后自动重试
+    setTimeout(function(){ safeShowLogin(mode); }, 3000);
+    return;
+  }
+  showLoginModal(mode);
+}
 
 // ---- PROFILE ----
 
@@ -4081,8 +4093,9 @@ function closeModal(){
 // ---- INIT SESSION ----
 
 async function initSupabaseSession(){
-  var sb=getSupabase();if(!sb) return;
   try {
+    if(!window._cloudReady && !window.supabase){ console.log('[Cloud] SDK未就绪，跳过初始化'); return; }
+    var sb=getSupabase();if(!sb) return;
     var session = await withTimeout(getCurrentSession(), 8000);
     if(session && session.user){
       cloudUser=session.user;
@@ -4091,10 +4104,10 @@ async function initSupabaseSession(){
       if(cp){var changed=applyProgressToLocal(cp,state.users[state.currentUser]);if(changed)saveState();}
       subscribePKInvites();
       console.log('[Cloud] Logged in as',cloudProfile?.nickname);
+      render(); // 刷新UI显示登录状态
     }
   } catch(e) {
-    console.warn('[Cloud] 会话初始化超时/失败:', e.message);
-    // 静默失败，不影响本地使用
+    console.warn('[Cloud] 会话初始化失败（不影响本地使用）:', e.message);
   }
 }
 
