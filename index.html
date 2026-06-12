@@ -3763,6 +3763,15 @@ let _pkChannel = null;
 
 // ---- AUTH ----
 
+// ---- 网络请求超时包装器 ----
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('⏱️ 网络超时（' + Math.round(ms/1000) + '秒），云端服务可能无法访问。请确认网络可翻墙后再试，或使用本地模式刷题')), ms)
+    ]);
+}
+
 async function handleSignUp() {
   const email = (document.getElementById('authEmail')?.value || '').trim();
   const password = document.getElementById('authPassword')?.value || '';
@@ -3774,18 +3783,21 @@ async function handleSignUp() {
   // 按钮加载状态
   if(btn){ btn.disabled=true; btn.textContent='⏳ 注册中...'; }
   if(errEl) errEl.textContent='';
+  // 立刻弹一个Toast让用户知道点了
+  showToast('🔄 正在连接云端...');
   try {
-    if (!window.supabase) { throw new Error('云端服务未连接（SDK未加载），请刷新页面重试'); }
-    const sb = getSupabase();
-    if (!sb) { throw new Error('云端服务初始化失败，请检查网络后刷新页面'); }
-    const { data, error } = await sb.auth.signUp({ email, password, options: { data: { nickname } } });
-    if (error) throw error;
+    if (!window.supabase) { throw new Error('SDK未加载，请刷新页面重试'); }
+    var sb = getSupabase();
+    if (!sb) { throw new Error('云端初始化失败，请刷新页面'); }
+    // 带超时的注册请求（8秒）
+    var result = await withTimeout(sb.auth.signUp({ email: email, password: password, options: { data: { nickname: nickname } } }), 8000);
+    if (result.error) throw result.error;
     // Create profile immediately
-    if (data.user) {
-      await sb.from('profiles').insert({ id: data.user.id, nickname }).select().single().catch(() => {});
+    if (result.data && result.data.user) {
+      await withTimeout(sb.from('profiles').insert({ id: result.data.user.id, nickname: nickname }).select().single(), 5000).catch(function(){});
     }
     closeModal();
-    showToast(`注册成功！欢迎 ${nickname} 🎉`);
+    showToast('注册成功！欢迎 ' + nickname + ' 🎉');
     await initSupabaseSession();
     render();
   } catch(e) {
@@ -3805,12 +3817,13 @@ async function handleSignIn() {
   if (!email || !password) { if(errEl) errEl.textContent = '请填写邮箱和密码'; showToast('⚠️ 请填写邮箱和密码'); return; }
   if(btn){ btn.disabled=true; btn.textContent='⏳ 登录中...'; }
   if(errEl) errEl.textContent='';
+  showToast('🔄 正在连接云端...');
   try {
-    if (!window.supabase) { throw new Error('云端服务未连接（SDK未加载），请刷新页面重试'); }
-    const sb = getSupabase();
-    if (!sb) { throw new Error('云端服务初始化失败，请检查网络后刷新页面'); }
-    const { data, error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (!window.supabase) { throw new Error('SDK未加载，请刷新页面重试'); }
+    var sb = getSupabase();
+    if (!sb) { throw new Error('云端初始化失败，请刷新页面'); }
+    var result = await withTimeout(sb.auth.signInWithPassword({ email: email, password: password }), 8000);
+    if (result.error) throw result.error;
     closeModal();
     await initSupabaseSession();
     showToast(`欢迎回来，${cloudProfile?.nickname || email} 👋`);
@@ -4068,17 +4081,20 @@ function closeModal(){
 // ---- INIT SESSION ----
 
 async function initSupabaseSession(){
-  const sb=getSupabase();if(!sb) return;
-  const session=await getCurrentSession();
-  if(session?.user){
-    cloudUser=session.user;
-    await ensureProfile(session.user);
-    // Pull progress
-    const cp=await pullProgress(session.user.id);
-    if(cp){const changed=applyProgressToLocal(cp,state.users[state.currentUser]);if(changed)saveState();}
-    // Listen for PK invites
-    subscribePKInvites();
-    console.log('[Cloud] Logged in as',cloudProfile?.nickname);
+  var sb=getSupabase();if(!sb) return;
+  try {
+    var session = await withTimeout(getCurrentSession(), 8000);
+    if(session && session.user){
+      cloudUser=session.user;
+      await withTimeout(ensureProfile(session.user), 5000);
+      var cp = await withTimeout(pullProgress(session.user.id), 8000);
+      if(cp){var changed=applyProgressToLocal(cp,state.users[state.currentUser]);if(changed)saveState();}
+      subscribePKInvites();
+      console.log('[Cloud] Logged in as',cloudProfile?.nickname);
+    }
+  } catch(e) {
+    console.warn('[Cloud] 会话初始化超时/失败:', e.message);
+    // 静默失败，不影响本地使用
   }
 }
 
