@@ -5,19 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MBA刷题王 - 北大备考·夫妻PK版</title>
 <script>
-// 动态加载Supabase SDK（多CDN容错，国内友好）
+// 动态加载Supabase SDK（多级CDN容错）
 (function(){
   var cdns=[
-    'https://cdn.bootcdn.net/ajax/libs/supabase-js/2.39.8/supabase.min.js',
     'https://unpkg.com/@supabase/supabase-js@2',
     'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
   ];
   function tryLoad(i){
-    if(i>=cdns.length){ console.warn('[Cloud] Supabase SDK加载失败，使用本地模式'); return; }
+    if(i>=cdns.length){ console.warn('[Cloud] Supabase SDK全部CDN失败，使用本地模式'); window._cloudSDKFailed=true; return; }
     var s=document.createElement('script');
     s.src=cdns[i];
-    s.onload=function(){ console.log('[Cloud] Supabase SDK loaded from',cdns[i]); };
-    s.onerror=function(){ tryLoad(i+1); };
+    s.onload=function(){ console.log('[Cloud] Supabase SDK OK:',cdns[i]); window._cloudSDKOK=true; };
+    s.onerror=function(){ console.warn('[Cloud] CDN失败:',cdns[i]); tryLoad(i+1); };
     document.head.appendChild(s);
   }
   tryLoad(0);
@@ -3769,11 +3768,16 @@ async function handleSignUp() {
   const password = document.getElementById('authPassword')?.value || '';
   const nickname = (document.getElementById('authNickname')?.value || '').trim();
   const errEl = document.getElementById('authError');
-  if (!email || !password || !nickname) { if(errEl) errEl.textContent = '请填写完整信息'; return; }
-  if (password.length < 6) { if(errEl) errEl.textContent = '密码至少6位'; return; }
+  const btn = document.querySelector('#authModal .btn-primary');
+  if (!email || !password || !nickname) { if(errEl) errEl.textContent = '请填写完整信息'; showToast('⚠️ 请填写完整信息'); return; }
+  if (password.length < 6) { if(errEl) errEl.textContent = '密码至少6位'; showToast('⚠️ 密码至少6位'); return; }
+  // 按钮加载状态
+  if(btn){ btn.disabled=true; btn.textContent='⏳ 注册中...'; }
+  if(errEl) errEl.textContent='';
   try {
+    if (!window.supabase) { throw new Error('云端服务未连接（SDK未加载），请刷新页面重试'); }
     const sb = getSupabase();
-    if (!sb || !window.supabase) { throw new Error('云端服务未连接，请检查网络后重试'); }
+    if (!sb) { throw new Error('云端服务初始化失败，请检查网络后刷新页面'); }
     const { data, error } = await sb.auth.signUp({ email, password, options: { data: { nickname } } });
     if (error) throw error;
     // Create profile immediately
@@ -3785,7 +3789,11 @@ async function handleSignUp() {
     await initSupabaseSession();
     render();
   } catch(e) {
+    console.error('[Cloud] 注册失败:', e);
     if(errEl) errEl.textContent = e.message || '注册失败';
+    showToast('❌ ' + (e.message || '注册失败'));
+    const btn2 = document.querySelector('#authModal .btn-primary');
+    if(btn2){ btn2.disabled=false; btn2.textContent='📝 注册'; }
   }
 }
 
@@ -3793,10 +3801,14 @@ async function handleSignIn() {
   const email = (document.getElementById('authEmail')?.value || '').trim();
   const password = document.getElementById('authPassword')?.value || '';
   const errEl = document.getElementById('authError');
-  if (!email || !password) { if(errEl) errEl.textContent = '请填写邮箱和密码'; return; }
+  const btn = document.querySelector('#authModal .btn-primary');
+  if (!email || !password) { if(errEl) errEl.textContent = '请填写邮箱和密码'; showToast('⚠️ 请填写邮箱和密码'); return; }
+  if(btn){ btn.disabled=true; btn.textContent='⏳ 登录中...'; }
+  if(errEl) errEl.textContent='';
   try {
+    if (!window.supabase) { throw new Error('云端服务未连接（SDK未加载），请刷新页面重试'); }
     const sb = getSupabase();
-    if (!sb || !window.supabase) { throw new Error('云端服务未连接，请检查网络后重试'); }
+    if (!sb) { throw new Error('云端服务初始化失败，请检查网络后刷新页面'); }
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
     closeModal();
@@ -3804,7 +3816,11 @@ async function handleSignIn() {
     showToast(`欢迎回来，${cloudProfile?.nickname || email} 👋`);
     render();
   } catch(e) {
+    console.error('[Cloud] 登录失败:', e);
     if(errEl) errEl.textContent = e.message || '登录失败';
+    showToast('❌ ' + (e.message || '登录失败'));
+    const btn2 = document.querySelector('#authModal .btn-primary');
+    if(btn2){ btn2.disabled=false; btn2.textContent='🔑 登录'; }
   }
 }
 
