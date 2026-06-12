@@ -3778,9 +3778,10 @@ let _pkChannel = null;
 function withTimeout(promise, ms) {
   return Promise.race([
     promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('⏱️ 网络超时（' + Math.round(ms/1000) + '秒），云端服务可能无法访问。请确认网络可翻墙后再试，或使用本地模式刷题')), ms)
-    ]);
+    new Promise(function(_, reject) {
+      setTimeout(function() { reject(new Error('timeout:' + ms)); }, ms);
+    })
+  ]);
 }
 
 async function handleSignUp() {
