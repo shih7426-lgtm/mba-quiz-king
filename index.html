@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MBA刷题王 - 北大备考·夫妻PK版</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -171,25 +172,53 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hira
 .phase-mini .dot{width:8px;height:8px;border-radius:50%}
 .phase-mini .label{font-size:12px;font-weight:700}
 .phase-mini .sub{font-size:11px;color:var(--text2);margin-left:auto}
-/* Cloud Sync */
+/* Auth / Login Modal */
+.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)}
+.auth-modal{background:var(--card);border-radius:16px;padding:24px;width:100%;max-width:360px;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.auth-modal h2{text-align:center;font-size:18px;margin-bottom:4px}
+.auth-modal .auth-subtitle{text-align:center;font-size:12px;color:var(--text2);margin-bottom:20px}
+.auth-input-group{margin-bottom:14px}
+.auth-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;display:block}
+.auth-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;outline:none;transition:border-color .2s}
+.auth-input:focus{border-color:var(--primary)}
+.auth-btn-row{display:flex;gap:8px;margin-top:16px}
+.auth-btn-row .btn{flex:1;font-size:13px;padding:10px 0}
+.auth-switch-mode{text-align:center;margin-top:12px;font-size:12px;color:var(--text2)}
+.auth-switch-mode a{color:var(--cyan);cursor:pointer;text-decoration:none}
+.auth-switch-mode a:hover{text-decoration:underline}
+.auth-error{color:var(--primary);font-size:12px;margin-top:8px;text-align:center;min-height:18px}
+.auth-divider{text-align:center;margin:16px 0;color:var(--text2);font-size:11px;position:relative}
+.auth-divider::before{content:'';position:absolute;left:0;top:50%;width:40%;height:1px;background:var(--border)}
+.auth-divider::after{content:'';position:absolute;right:0;top:50%;width:40%;height:1px;background:var(--border)}
+/* Cloud Sync (Supabase) */
 .sync-status{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s}
 .sync-status.connected{background:rgba(0,200,83,.15);color:var(--green);border:1px solid rgba(0,200,83,.3)}
 .sync-status.disconnected{background:rgba(233,69,96,.1);color:var(--primary);border:1px solid rgba(233,69,96,.25)}
-.sync-status.syncing{background:rgba(245,197,24,.15);color:var(--accent);border:1px solid rgba(245,197,24,.3)}
 .sync-dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse-dot 2s infinite}
 .sync-dot.synced{animation:none}
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
 .sync-card{position:relative}
-.sync-input-group{margin-bottom:12px}
-.sync-input-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;display:block}
-.sync-token-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-family:monospace;outline:none;transition:border-color .2s}
-.sync-token-input:focus{border-color:var(--primary)}
 .sync-help-text{font-size:11px;color:var(--text2);line-height:1.6;margin-top:6px}
-.sync-btn-row{display:flex;gap:8px;margin-top:10px}
-.sync-btn-row .btn{flex:1;font-size:12px;padding:8px 0}
-.sync-last-time{font-size:11px;color:var(--text2);margin-top:6px}
 .sync-manual-btn{padding:6px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:11px;transition:all .2s}
 .sync-manual-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.sync-last-time{font-size:11px;color:var(--text2);margin-top:6px}
+.account-info-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.account-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0}
+.account-details{flex:1;min-width:0}
+.account-name{font-size:14px;font-weight:700}
+.account-email{font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.alliance-card{background:var(--card2);border-radius:10px;padding:12px;margin-top:10px}
+.alliance-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.alliance-partner{display:flex;align-items:center;gap:8px}
+.alliance-partner-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
+.alliance-search{margin-top:10px}
+.alliance-search input{width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;outline:none}
+.alliance-search input:focus{border-color:var(--primary)}
+.pk-invite-item{display:flex;align-items:center;gap:8px;padding:8px;background:rgba(245,197,24,.08);border-radius:8px;margin-top:6px;border:1px solid rgba(245,197,24,.2)}
+.pk-invite-avatar{width:28px;height:28px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.pk-invite-info{flex:1;min-width:0}
+.pk-invite-name{font-size:12px;font-weight:600}
+.pk-invite-detail{font-size:10px;color:var(--text2)}
 </style>
 </head>
 <body>
@@ -1848,7 +1877,7 @@ function saveState() {
   }
   localStorage.setItem('mba_quiz_state', JSON.stringify(state));
   // Auto-sync to cloud (debounced)
-  syncToCloudDebounced();
+  scheduleCloudSync();
 }
 
 // Find which subject a question belongs to by its ID
@@ -2165,7 +2194,7 @@ function renderHome() {
         <div class="user-btn ${uid==='user1'?'active':''}" onclick="switchUser('user1')">${esc(u.name)}</div>
         <div class="user-btn ${uid==='user2'?'active':''}" onclick="switchUser('user2')">${esc(other.name)}</div>
       </div>
-      ${isCloudConnected() ? `<div style="position:absolute;right:0;top:52px"><span class="sync-status connected" onclick="navigate('stats')" title="点击进入同步设置" style="font-size:10px;padding:2px 8px"><span class="sync-dot synced"></span> 云端</span></div>` : ''}
+      ${isCloudLoggedIn() ? `<div style="position:absolute;right:0;top:52px"><span class="sync-status connected" onclick="navigate('stats')" title="已登录云端账户" style="font-size:10px;padding:2px 8px;cursor:pointer"><span class="sync-dot synced"></span> ${esc(cloudProfile?.nickname||'云端')}</span></div>` : `<button style="position:absolute;right:0;top:48px;padding:4px 12px;border-radius:16px;border:1px solid var(--cyan);background:rgba(0,188,212,.1);color:var(--cyan);cursor:pointer;font-size:11px;font-weight:600" onclick="showLoginModal('signin')">☁️ 登录</button>`}
     </div>
 
     <div class="phase-mini fade-in" onclick="navigate('plan')" style="cursor:pointer">
@@ -3404,7 +3433,7 @@ function renderStats() {
       </div>
     </div>
 
-    ${renderSyncSettings()}
+    ${renderAccountPanel()}
   `;
 
   // Draw radar chart
@@ -3564,345 +3593,456 @@ function removeWrong(qid) {
   showToast('已移出错题本 ✅');
 }
 
-// ==================== CLOUD SYNC (GitHub Gist) ====================
-const CLOUD_STORAGE_KEY = 'mba_quiz_cloud_config';
-const CLOUD_FILE = 'mba-quiz-data.json';
-let _syncDebounceTimer = null;
-let _isSyncing = false;
+// ==================== ACCOUNT PANEL (Supabase) ====================
+async function renderAccountPanel() {
+  const loggedIn = isCloudLoggedIn();
+  
+  if (loggedIn) {
+    // Logged in: show account info, alliance, sync status
+    const name = cloudProfile?.nickname || '用户';
+    const email = cloudUser?.email || '';
+    const initial = (name[0] || 'U').toUpperCase();
+    
+    // Fetch alliance info
+    const alliance = await getAlliance().catch(() => null);
+    const partnerId = alliance ? (alliance.user1_id === cloudUser?.id ? alliance.user2_id : alliance.user1_id) : null;
+    const partnerProfile = partnerId ? (alliance.user1_id === cloudUser?.id ? alliance.user2 : alliance.user1) : null;
+    const partnerInitial = partnerProfile ? (partnerProfile.nickname?.[0] || '?').toUpperCase() : '?';
+    
+    // Fetch pending PK invites
+    const invites = await fetchPendingInvites().catch(() => []);
 
-function getCloudConfig() {
-  try {
-    const c = JSON.parse(localStorage.getItem(CLOUD_STORAGE_KEY));
-    return c || { token: null, gistId: null, lastSync: null };
-  } catch(e) { return { token: null, gistId: null, lastSync: null }; }
-}
-
-function setCloudConfig(token, gistId) {
-  localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify({ token, gistId, lastSync: new Date().toISOString() }));
-}
-
-function clearCloudConfig() {
-  localStorage.removeItem(CLOUD_STORAGE_KEY);
-}
-
-function isCloudConnected() {
-  const c = getCloudConfig();
-  return !!(c.token && c.gistId);
-}
-
-async function testToken(token) {
-  const res = await fetch('https://api.github.com/user', {
-    headers: { Authorization: `token ${token}` }
-  });
-  if (!res.ok) throw new Error('Token无效，请检查是否正确');
-  const data = await res.json();
-  return data.login;
-}
-
-async function createGist(token) {
-  const u1 = state.users.user1;
-  // Only sync non-name fields that represent progress
-  const payload = buildCloudPayload(u1);
-  const res = await fetch('https://api.github.com/gists', {
-    method: 'POST',
-    headers: {
-      'Authorization': `token ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      description: 'MBA刷题王 - 云端同步数据（自动生成，请勿手动编辑）',
-      public: false,
-      files: { [CLOUD_FILE]: { content: JSON.stringify(payload, null, 2) } }
-    })
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || '创建Gist失败(' + res.status + ')');
-  }
-  const data = await res.json();
-  return data.id;
-}
-
-async function pushToCloud(force) {
-  const c = getCloudConfig();
-  if (!c.token || !c.gistId) return;
-  if (_isSyncing && !force) return;
-  _isSyncing = true;
-
-  try {
-    const u1 = state.users.user1;
-    const payload = buildCloudPayload(u1);
-    const res = await fetch(`https://api.github.com/gists/${c.gistId}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `token ${c.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        files: { [CLOUD_FILE]: { content: JSON.stringify(payload, null, 2) } }
-      })
-    });
-    if (!res.ok) throw new Error('推送失败(' + res.status + ')');
-    c.lastSync = new Date().toISOString();
-    localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify(c));
-  } catch(e) {
-    console.warn('[Cloud Sync] push failed:', e.message);
-  } finally {
-    _isSyncing = false;
-  }
-}
-
-async function pullFromCloud() {
-  const c = getCloudConfig();
-  if (!c.token || !c.gistId) return null;
-
-  try {
-    const res = await fetch(`https://api.github.com/gists/${c.gistId}`, {
-      headers: { Authorization: `token ${c.token}` }
-    });
-    if (!res.ok) throw new Error('拉取失败(' + res.status + ')');
-    const data = await res.json();
-    const file = data.files[CLOUD_FILE];
-    if (!file) throw new Error('数据文件不存在');
-    const parsed = JSON.parse(file.content);
-    c.lastSync = new Date().toISOString();
-    localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify(c));
-    return parsed;
-  } catch(e) {
-    console.warn('[Cloud Sync] pull failed:', e.message);
-    return null;
-  }
-}
-
-function buildCloudPayload(user) {
-  return {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    data: {
-      wins: user.wins,
-      streak: user.streak,
-      maxStreak: user.maxStreak,
-      totalQuestions: user.totalQuestions,
-      correctCount: user.correctCount,
-      lastStudyDate: user.lastStudyDate,
-      studyDays: user.studyDays,
-      wrongBook: user.wrongBook,
-      todayTime: user.todayTime,
-      pkHistory: user.pkHistory,
-      subjectStats: user.subjectStats
-    }
-  };
-}
-
-function applyCloudData(cloudData) {
-  if (!cloudData || !cloudData.data) return false;
-  const d = cloudData.data;
-  const u1 = state.users.user1;
-  let changed = false;
-  // Merge strategy: cloud wins for most fields
-  const mergeFields = ['wins','streak','maxStreak','totalQuestions','correctCount','lastStudyDate','todayTime'];
-  for (let f of mergeFields) {
-    if (d[f] !== undefined && d[f] !== u1[f]) { u1[f] = d[f]; changed = true; }
-  }
-
-  // Merge studyDays - combine both sides
-  if (d.studyDays) {
-    for (let [day, val] of Object.entries(d.studyDays)) {
-      if (!u1.studyDays[day] || val > u1.studyDays[day]) {
-        u1.studyDays[day] = val; changed = true;
-      }
-    }
-  }
-
-  // Merge wrongBook - union of both
-  if (Array.isArray(d.wrongBook)) {
-    const localSet = new Set(u1.wrongBook);
-    for (let id of d.wrongBook) { if (!localSet.has(id)) { u1.wrongBook.push(id); localSet.add(id); changed = true; } }
-  }
-
-  // Merge pkHistory - union by id
-  if (Array.isArray(d.pkHistory)) {
-    const localIds = new Set(u1.pkHistory.map(h => h.id || JSON.stringify(h)));
-    for (let h of d.pkHistory) {
-      const hid = h.id || JSON.stringify(h);
-      if (!localIds.has(hid)) { u1.pkHistory.push(h); localIds.add(hid); changed = true; }
-    }
-  }
-
-  // Merge subjectStats - take max done/correct per subject
-  if (d.subjectStats) {
-    for (let sub of ['math','logic','writing','english']) {
-      if (d.subjectStats[sub]) {
-        if (!u1.subjectStats[sub]) u1.subjectStats[sub] = {done:0, correct:0};
-        if (d.subjectStats[sub].done > u1.subjectStats[sub].done) { u1.subjectStats[sub].done = d.subjectStats[sub].done; changed = true; }
-        if (d.subjectStats[sub].correct > u1.subjectStats[sub].correct) { u1.subjectStats[sub].correct = d.subjectStats[sub].correct; changed = true; }
-      }
-    }
-  }
-
-  return changed;
-}
-
-function syncToCloudDebounced() {
-  if (!isCloudConnected()) return;
-  if (_syncDebounceTimer) clearTimeout(_syncDebounceTimer);
-  _syncDebounceTimer = setTimeout(() => pushToCloud(), 2000);
-}
-
-async function connectCloudSync() {
-  const tokenInput = document.getElementById('syncTokenInput');
-  if (!tokenInput) return;
-  const token = tokenInput.value.trim();
-  if (!token) { showToast('请输入 Token ⚠️'); return; }
-
-  const statusEl = document.getElementById('syncStatusText');
-  if (statusEl) statusEl.textContent = '验证中...';
-
-  try {
-    const username = await testToken(token);
-
-    // Check if gist already exists
-    let gistId = getCloudConfig().gistId;
-    if (!gistId) {
-      if (statusEl) statusEl.textContent = '创建云端存储...';
-      gistId = await createGist(token);
+    let allianceHtml = '';
+    if (alliance) {
+      allianceHtml = `
+        <div class="alliance-card">
+          <div class="alliance-header">
+            <span style="font-size:13px;font-weight:700;color:var(--purple)">🤝 联盟伙伴</span>
+            <button class="sync-manual-btn" onclick="leaveAlliance()" style="border-color:var(--primary);color:var(--primary);font-size:10px">解除</button>
+          </div>
+          <div class="alliance-partner">
+            <div class="alliance-partner-avatar">${esc(partnerInitial)}</div>
+            <div>
+              <div style="font-size:13px;font-weight:600">${esc(partnerProfile?.nickname||'伙伴')}</div>
+              ${partnerProfile?.phone ? `<div style="font-size:10px;color:var(--text2)">${esc(partnerProfile.phone)}</div>` : ''}
+            </div>
+            <button class="btn" style="padding:4px 12px;font-size:11px;border-radius:16px;margin-left:auto" onclick="sendAlliancePK()">⚔️ PK</button>
+          </div>
+        </div>
+        ${invites.length > 0 ? `<div style="margin-top:8px"><span style="font-size:12px;font-weight:700">📩 收到的PK邀请 (${invites.length})</span>${invites.slice(0,3).map(inv => {
+          const fromName = inv.from_user?.nickname || '对方';
+          const fromInit = (fromName[0]||'?').toUpperCase();
+          return `<div class="pk-invite-item"><div class="pk-invite-avatar">${fromInit}</div><div class="pk-invite-info"><div class="pk-invite-name">${esc(fromName)}</div><div class="pk-invite-detail">${inv.quiz_mode} · ${inv.question_count}题</div></div><button class="btn btn-primary" style="padding:3px 10px;font-size:10px;border-radius:14px" onclick="respondPKInvite('${inv.id}',true);this.parentElement.remove();showToast('已接受 ⚔️')">接受</button></div>`;
+        }).join('')}</div>` : ''}
+      `;
     } else {
-      // Test existing gist access
-      const testRes = await fetch(`https://api.github.com/gists/${gistId}`, {
-        headers: { Authorization: `token ${token}` }
-      });
-      if (!testRes.ok) gistId = await createGist(token);
+      allianceHtml = `
+        <div class="alliance-card">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">
+            🤝 组建联盟后，可以和伙伴实时PK对战、互相监督
+          </div>
+          <div class="alliance-search">
+            <input placeholder="输入对方手机号搜索..." id="alliancePhoneInput" onkeydown="if(event.key==='Enter')handleFormAlliance()">
+          </div>
+          <button class="btn btn-primary btn-block" style="margin-top:8px;font-size:12px" onclick="handleFormAlliance()">🔍 搜索并组队</button>
+        </div>
+      `;
     }
 
-    setCloudConfig(token, gistId);
-    // Push current data immediately
-    await pushToCloud(true);
+    return `
+      <div class="card fade-in sync-card">
+        <div class="card-title"><span class="emoji">☁️</span>云端账户</div>
+        <div class="account-info-row">
+          <div class="account-avatar">${initial}</div>
+          <div class="account-details">
+            <div class="account-name">${esc(name)}</div>
+            <div class="account-email">${esc(email)}</div>
+          </div>
+          <span class="sync-status connected"><span class="sync-dot synced"></span> 已连接</span>
+        </div>
+        <div class="sync-help-text">
+          ✅ 答题进度自动云端备份<br>
+          ✅ 换设备登录即可恢复<br>
+          ✅ 数据存储在你的 Supabase 私有数据库中
+        </div>
+        ${allianceHtml}
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="sync-manual-btn" onclick="pushProgress(true);showToast('同步完成 ✅')" style="flex:1;text-align:center">🔄 手动同步</button>
+          <button class="sync-manual-btn" onclick="handleSignOut()" style="flex:1;text-align:center;border-color:var(--primary);color:var(--primary)">退出登录</button>
+        </div>
+      </div>
+    `;
 
-    showToast(`云端同步已连接 ✅ (${username})`);
-    render(); // refresh to show connected state
-
-  } catch(e) {
-    showToast('连接失败: ' + e.message);
-    if (statusEl) statusEl.textContent = '连接失败';
+  } else {
+    // Not logged in
+    return `
+      <div class="card fade-in sync-card">
+        <div class="card-title"><span class="emoji">☁️</span>云端账户</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:14px">
+          🔗 登录云端账户后，你的刷题进度会在多设备间自动同步。<br>
+          👥 还可以和伙伴组建联盟，实时PK对战！<br>
+          💡 注册/登录只需要邮箱 + 昵称，30秒搞定。
+        </div>
+        <div class="auth-btn-row" style="margin-top:0">
+          <button class="btn btn-primary" onclick="showLoginModal('signin')">🔑 登录</button>
+          <button class="btn" onclick="showLoginModal('signup')" style="background:var(--card2);border-color:var(--border)">📝 注册</button>
+        </div>
+        <div class="sync-help-text" style="margin-top:10px">
+          当前为本地模式，数据仅保存在本设备浏览器中。
+        </div>
+      </div>
+    `;
   }
 }
 
-function disconnectCloudSync() {
-  clearCloudConfig();
-  showToast('已断开云端同步');
+async function handleFormAlliance() {
+  const input = document.getElementById('alliancePhoneInput');
+  if (!input) return;
+  const phone = input.value.trim();
+  if (!phone) { showToast('请输入手机号'); return; }
+  showToast('搜索中...');
+  const result = await formAlliance(phone);
+  if (result.error) { showToast(result.error); return; }
+  showToast('联盟成立！🤝');
   render();
 }
 
-async function manualSync() {
-  if (!isCloudConnected()) { showToast('未连接云端同步 ⚠️'); return; }
-  const btn = document.getElementById('manualSyncBtn');
-  if (btn) { btn.textContent = '⏳ 同步中...'; btn.disabled = true; }
-
+async function sendAlliancePK() {
+  const alliance = await getAlliance();
+  if (!alliance) { showToast('请先组建联盟'); return; }
+  const partnerId = alliance.user1_id === cloudUser?.id ? alliance.user2_id : alliance.user1_id;
   try {
-    // Pull first (import any newer data from cloud)
-    const cloudData = await pullFromCloud();
-    if (cloudData) {
-      const changed = applyCloudData(cloudData);
-      if (changed) saveState();
+    await sendPKInvite(partnerId, 'mixed', 10);
+    showToast('PK邀请已发送！等待对方接受 ⚔️');
+  } catch(e) {
+    showToast('发送失败: ' + e.message);
+  }
+}
+
+// ==================== SUPABASE CLOUD SYNC ====================
+const SUPABASE_URL = 'https://didlzynyavsavtfvliksg.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_3AO-wuCqdrJ_kXoycfumgw_j270WkBh';
+
+let _supabase = null;
+function getSupabase() {
+  if (!_supabase && window.supabase) {
+    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return _supabase;
+}
+
+// Global cloud state
+let cloudUser = null;
+let cloudProfile = null;
+let _cloudSyncTimer = null;
+let _isCloudSyncing = false;
+let _pkChannel = null;
+
+// ---- AUTH ----
+
+async function handleSignUp() {
+  const email = (document.getElementById('authEmail')?.value || '').trim();
+  const password = document.getElementById('authPassword')?.value || '';
+  const nickname = (document.getElementById('authNickname')?.value || '').trim();
+  const errEl = document.getElementById('authError');
+  if (!email || !password || !nickname) { if(errEl) errEl.textContent = '请填写完整信息'; return; }
+  if (password.length < 6) { if(errEl) errEl.textContent = '密码至少6位'; return; }
+  try {
+    const sb = getSupabase();
+    const { data, error } = await sb.auth.signUp({ email, password, options: { data: { nickname } } });
+    if (error) throw error;
+    // Create profile immediately
+    if (data.user) {
+      await sb.from('profiles').insert({ id: data.user.id, nickname }).select().single().catch(() => {});
     }
-    // Then push (upload latest local data)
-    await pushToCloud(true);
-    showToast('同步完成 ✅');
+    closeModal();
+    showToast(`注册成功！欢迎 ${nickname} 🎉`);
+    await initSupabaseSession();
     render();
   } catch(e) {
-    showToast('同步失败: ' + e.message);
-  } finally {
-    if (btn) { btn.textContent = '🔄 立即同步'; btn.disabled = false; }
+    if(errEl) errEl.textContent = e.message || '注册失败';
   }
 }
 
-// Render sync settings panel (called inside renderStats)
-function renderSyncSettings() {
-  const c = getCloudConfig();
-  const connected = isCloudConnected();
-  const lastSync = c.lastSync ? formatSyncTime(c.lastSync) : '从未';
-
-  let bodyHtml = '';
-  if (connected) {
-    bodyHtml = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <span class="sync-status connected"><span class="sync-dot synced"></span> 已连接</span>
-        <span style="flex:1"></span>
-        <button class="sync-manual-btn" id="manualSyncBtn" onclick="manualSync()">🔄 立即同步</button>
-        <button class="sync-manual-btn" onclick="disconnectCloudSync()" style="border-color:var(--primary);color:var(--primary)">断开</button>
-      </div>
-      <div class="sync-last-time">上次同步: ${lastSync}</div>
-      <div class="sync-help-text">
-        ✅ 你的刷题进度会自动备份到 GitHub 私有 Gist<br>
-        ✅ 换设备打开页面后会自动恢复进度<br>
-        ✅ 只有「${esc(state.users.user1.name)}」的账户数据会被同步<br>
-        💡 数据存储在你的 GitHub 私有 Gist 中，完全私密
-      </div>
-    `;
-  } else {
-    bodyHtml = `
-      <div style="margin-bottom:12px">
-        <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px">
-          🔗 连接 GitHub 云端同步后，你的刷题进度会在多设备间自动同步。<br>
-          需要一个只读权限的 GitHub Personal Access Token。
-        </p>
-        <div class="sync-input-group">
-          <label class="sync-input-label">GitHub Personal Access Token</label>
-          <input class="sync-token-input" id="syncTokenInput" type="password" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
-        </div>
-        <div class="sync-help-text">
-          📌 获取方式：<br>
-          1. 打开 github.com/settings/tokens<br>
-          2. Generate new token → 勾选 <code style="background:var(--card);padding:1px 4px;border-radius:3px">gist</code> 权限<br>
-          3. 复制 Token 粘贴到上方输入框<br>
-          ⚠️ Token 仅用于读写你的私有 Gist，不会泄露给第三方
-        </div>
-        <div class="sync-btn-row">
-          <button class="btn btn-primary" onclick="connectCloudSync()">🔗 连接云端同步</button>
-        </div>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="card fade-in sync-card">
-      <div class="card-title"><span class="emoji">☁️</span>云端同步</div>
-      ${bodyHtml}
-    </div>
-  `;
-}
-
-function formatSyncTime(isoStr) {
-  if (!isoStr) return '从未';
-  const d = new Date(isoStr);
-  const now = new Date();
-  const diff = now - d;
-  if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return Math.floor(diff/60000) + '分钟前';
-  if (diff < 86400000) return Math.floor(diff/3600000) + '小时前';
-  return d.toLocaleDateString('zh-CN');
-}
-
-// On page load, try to pull from cloud
-async function initCloudSync() {
-  if (!isCloudConnected()) return;
+async function handleSignIn() {
+  const email = (document.getElementById('authEmail')?.value || '').trim();
+  const password = document.getElementById('authPassword')?.value || '';
+  const errEl = document.getElementById('authError');
+  if (!email || !password) { if(errEl) errEl.textContent = '请填写邮箱和密码'; return; }
   try {
-    const cloudData = await pullFromCloud();
-    if (cloudData) {
-      const changed = applyCloudData(cloudData);
-      if (changed) {
-        saveState();
-        console.log('[Cloud Sync] Data restored from cloud');
-      }
-    }
+    const sb = getSupabase();
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    closeModal();
+    await initSupabaseSession();
+    showToast(`欢迎回来，${cloudProfile?.nickname || email} 👋`);
+    render();
   } catch(e) {
-    console.warn('[Cloud Sync] Init pull failed:', e.message);
+    if(errEl) errEl.textContent = e.message || '登录失败';
+  }
+}
+
+async function handleSignOut() {
+  const sb = getSupabase();
+  await sb.auth.signOut();
+  unsubscribePKInvites();
+  cloudUser = null;
+  cloudProfile = null;
+  showToast('已退出登录');
+  render();
+}
+
+async function getCurrentSession() {
+  const sb = getSupabase(); if(!sb) return null;
+  const { data: { session } } = await sb.auth.getSession();
+  return session;
+}
+
+function isCloudLoggedIn() { return !!cloudUser; }
+
+// ---- PROFILE ----
+
+async function ensureProfile(user) {
+  const sb = getSupabase(); if(!sb) return null;
+  const { data: existing } = await sb.from('profiles').select('*').eq('id', user.id).single().catch(() => ({}));
+  if (existing) { cloudProfile = existing; return existing; }
+  const name = user.user_metadata?.nickname || user.email?.split('@')[0] || '用户';
+  const { data: profile } = await sb.from('profiles').insert({ id: user.id, nickname: name }).select().single().catch(() => ({}));
+  cloudProfile = profile || existing;
+  return cloudProfile;
+}
+
+async function getProfileById(uid) {
+  const sb = getSupabase(); if(!sb) return null;
+  const { data } = await sb.from('profiles').select('*').eq('id', uid).single();
+  return data;
+}
+
+async function searchByPhone(phone) {
+  const sb = getSupabase(); if(!sb) return null;
+  const { data } = await sb.from('profiles').select('*').eq('phone', phone).maybeSingle();
+  return data;
+}
+
+async function updateMyProfile(updates) {
+  const sb = getSupabase(); if(!sb||!cloudUser) return;
+  await sb.from('profiles').update(updates).eq('id', cloudUser.id);
+  Object.assign(cloudProfile, updates);
+}
+
+// ---- PROGRESS SYNC ----
+
+function buildProgressPayload(localUser) {
+  return {
+    wins: localUser.wins||0, streak: localUser.streak||0,
+    max_streak: localUser.maxStreak||0, total_questions: localUser.totalQuestions||0,
+    correct_count: localUser.correctCount||0, last_study_date: localUser.lastStudyDate||null,
+    study_days: localUser.studyDays||{}, wrong_book: localUser.wrongBook||[],
+    today_time: localUser.todayTime||0, pk_history: localUser.pkHistory||[],
+    subject_stats: localUser.subjectStats||{}
+  };
+}
+
+function applyProgressToLocal(cloudRec, targetUser) {
+  if(!cloudRec) return false;
+  let changed=false;
+  const m={wins:'wins',streak:'streak',max_streak:'maxStreak',total_questions:'totalQuestions',
+    correct_count:'correctCount',last_study_date:'lastStudyDate',today_time:'todayTime'};
+  for(let [ck,lk] of Object.entries(m)){
+    if(cloudRec[ck]!==undefined&&cloudRec[ck]!==targetUser[lk]){targetUser[lk]=cloudRec[ck];changed=true;}
+  }
+  if(cloudRec.study_days){for(let[d,v]of Object.entries(cloudRec.study_days)){if(!targetUser.studyDays[d]){targetUser.studyDays[d]=v;changed=true;}}}
+  if(Array.isArray(cloudRec.wrong_book)){const s=new Set(targetUser.wrongBook);for(let id of cloudRec.wrong_book){if(!s.has(id)){targetUser.wrongBook.push(id);s.add(id);changed=true;}}}
+  if(Array.isArray(cloudRec.pk_history)){const s=new Set(targetUser.pkHistory.map(h=>h.id||JSON.stringify(h)));for(let h of cloudRec.pk_history){const hid=h.id||JSON.stringify(h);if(!s.has(h)){targetUser.pkHistory.push(h);s.add(hid);changed=true;}}}
+  if(cloudRec.subject_stats){for(let sub of ['math','logic','writing','english']){if(cloudRec.subject_stats[sub]){if(!targetUser.subjectStats[sub])targetUser.subjectStats[sub]={done:0,correct:0};if(cloudRec.subject_stats[sub].done>targetUser.subjectStats[sub].done){targetUser.subjectStats[sub].done=cloudRec.subject_stats[sub].done;changed=true;}if(cloudRec.subject_stats[sub].correct>targetUser.subjectStats[sub].correct){targetUser.subjectStats[sub].correct=cloudRec.subject_stats[sub].correct;changed=true;}}}}
+  return changed;
+}
+
+async function pushProgress(force) {
+  if(!cloudUser||_isCloudSyncing) return;
+  _isCloudSyncing=true;
+  try{
+    const sb=getSupabase();
+    const p=buildProgressPayload(state.users[state.currentUser]);
+    const{error}=await sb.from('user_progress').upsert(
+      {user_id:cloudUser.id,...p,updated_at:new Date().toISOString()},{onConflict:'user_id'}
+    );
+    if(error) console.warn('[Cloud] Push failed:',error.message);
+  }catch(e){
+    console.warn('[Cloud] Push error:',e.message);
+  }finally{_isCloudSyncing=false;}
+}
+
+async function pullProgress(userId) {
+  const sb=getSupabase();if(!sb)return null;
+  const{data,error}=await sb.from('user_progress').select('*').eq('user_id',userId).single();
+  if(error||!data)return null;
+  return data;
+}
+
+function scheduleCloudSync(){
+  if(!cloudUser) return;
+  if(_cloudSyncTimer) clearTimeout(_cloudSyncTimer);
+  _cloudSyncTimer=setTimeout(()=>pushProgress(),3000);
+}
+
+// ---- ALLIANCE ----
+
+async function getAlliance() {
+  if(!cloudUser) return null;
+  const sb=getSupabase();if(!sb) return null;
+  const{data}=await sb.from('alliances')
+    .select('*,user1:profiles!alliances_user1_id_fkey(*),user2:profiles!alliances_user2_id_fkey(*)')
+    .or(`user1_id.eq.${cloudUser.id},user2_id.eq.${cloudUser.id}`).eq('status','active').maybeSingle()
+    .catch(()=>null);
+  return data;
+}
+
+async function formAlliance(partnerPhone) {
+  const partner=await searchByPhone(partnerPhone);
+  if(!partner) return{error:'未找到该手机号用户，请确认对方已绑定手机号'};
+  if(partner.id===cloudUser.id) return{error:'不能和自己组队哦 😄'};
+  const sb=getSupabase();if(!sb) return{error:'连接失败'};
+  const{data:existing}=await sb.from('alliances')
+    .select('*').or(`(user1_id.eq.${cloudUser.id} AND user2_id.eq.${partner.id}) OR (user1_id.eq.${partner.id} AND user2_id.eq.${cloudUser.id})`).maybeSingle();
+  if(existing) return{error:'已经是联盟伙伴了'};
+  const{data,error}=await sb.from('alliances').insert({user1_id:cloudUser.id,user2_id:partner.id,status:'active'}).select().single();
+  if(error) return{error:error.message};
+  return{success:true,data};
+}
+
+async function leaveAlliance() {
+  const sb=getSupabase();if(!sb) return;
+  const a=await getAlliance();
+  if(a) await sb.from('alliances').update({status:'dissolved'}).eq('id',a.id);
+  showToast('已退出联盟');
+  render();
+}
+
+// ---- PK INVITATIONS (Realtime) ----
+
+async function sendPKInvite(toUserId,mode,count) {
+  const sb=getSupabase();if(!sb) throw new Error('未连接');
+  const{data,error}=await sb.from('pk_invitations').insert({
+    from_user_id:cloudUser.id,to_user_id:toUserId,status:'pending',
+    quiz_mode:mode||'mixed',question_count:count||10
+  }).select().single();
+  if(error) throw error;
+  return data;
+}
+
+async function respondPKInvite(inviteId,accept) {
+  const sb=getSupabase();if(!sb) return;
+  await sb.from('pk_invitations').update({status:accept?'accepted':'rejected'}).eq('id',inviteId);
+}
+
+async function fetchPendingInvites() {
+  if(!cloudUser) return [];
+  const sb=getSupabase();if(!sb) return [];
+  const{data}=await sb.from('pk_invitations')
+    .select('*,from_user:profiles!pk_invitations_from_user_id_fkey(*)')
+    .eq('to_user_id',cloudUser.id).eq('status','pending').order('created_at',{ascending:false});
+  return data||[];
+}
+
+function subscribePKInvites() {
+  if(!cloudUser||_pkChannel) return;
+  const sb=getSupabase();if(!sb) return;
+  _pkChannel=sb.channel('pk-invites-ch')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'pk_invitations',filter:`to_user_id=eq.${cloudUser.id}`},async(payload)=>{
+      const inv=payload.new;
+      const fromP=await getProfileById(inv.from_user_id);
+      showPKNotification(inv,fromP);
+    })
+    .subscribe();
+}
+
+function unsubscribePKInvites(){if(_pkChannel){_pkChannel.unsubscribe();_pkChannel=null;}}
+
+function showPKNotification(invite,fromProfile){
+  const name=fromProfile?.nickname||'对方';
+  const modeMap={math:'数学',logic:'逻辑',writing:'写作',english:'英语',mixed:'综合'};
+  const modeLabel=modeMap[invite.quiz_mode]||invite.quiz_mode;
+  const confirmed=confirm(`${name} 向你发起了PK挑战！\n📋 ${modeLabel} · ${invite.question_count}道题\n\n接受挑战吗？`);
+  if(confirmed){
+    respondPKInvite(invite.id,true).then(()=>{
+      showToast('已接受PK挑战 ⚔️');navigate('pk');
+    }).catch(e=>showToast('操作失败: '+e.message));
+  }else{
+    respondPKInvite(invite.id,false).catch(()=>{});
+  }
+}
+
+// ---- LOGIN MODAL UI ----
+
+let _loginMode='signin'; // signin or signup
+
+function showLoginModal(mode){
+  _loginMode=mode||'signin';
+  const isSignup=_loginMode==='signup';
+  const overlay=document.createElement('div');
+  overlay.className='auth-overlay';
+  overlay.id='authModal';
+  overlay.onclick=function(e){if(e.target===overlay)closeModal();};
+  overlay.innerHTML=`
+    <div class="auth-modal fade-in">
+      <h2>${isSignup?'注册账户':'登录账户'}</h2>
+      <p class="auth-subtitle">${isSignup?'创建你的云端学习账户':'登录后自动同步进度'}</p>
+      <div class="auth-input-group">
+        <label class="auth-label">邮箱</label>
+        <input class="auth-input" id="authEmail" type="email" placeholder="your@email.com" autocomplete="email">
+      </div>
+      ${isSignup?`
+      <div class="auth-input-group">
+        <label class="auth-label">昵称</label>
+        <input class="auth-input" id="authNickname" type="text" placeholder="你的称呼">
+      </div>`:''}
+      <div class="auth-input-group">
+        <label class="auth-label">密码</label>
+        <input class="auth-input" id="authPassword" type="password" placeholder="${isSignup?'至少6位':'输入密码'}" autocomplete="${isSignup?'new-password':'current-password'}">
+      </div>
+      ${isSignup?`
+      <div class="auth-input-group">
+        <label class="auth-label">手机号（可选，用于联盟匹配）</label>
+        <input class="auth-input" id="authPhone" type="tel" placeholder="用于让联盟伙伴找到你">
+      </div>`:''}
+      <div class="auth-error" id="authError"></div>
+      <div class="auth-btn-row">
+        <button class="btn btn-primary" onclick="${isSignup ? 'handleSignUp()' : 'handleSignIn()'}">${isSignup ? '📝 注册' : '🔑 登录'}</button>
+      </div>
+      <div class="auth-switch-mode">
+        ${isSignup?'已有账户？<a onclick="showLoginModal(\'signin\')">去登录</a>':'没有账户？<a onclick="showLoginModal(\'signup\')">去注册</a>'}
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>{const el=document.getElementById('authEmail');if(el)el.focus();},100);
+}
+
+function closeModal(){
+  const el=document.getElementById('authModal');
+  if(el) el.remove();
+}
+
+// ---- INIT SESSION ----
+
+async function initSupabaseSession(){
+  const sb=getSupabase();if(!sb) return;
+  const session=await getCurrentSession();
+  if(session?.user){
+    cloudUser=session.user;
+    await ensureProfile(session.user);
+    // Pull progress
+    const cp=await pullProgress(session.user.id);
+    if(cp){const changed=applyProgressToLocal(cp,state.users[state.currentUser]);if(changed)saveState();}
+    // Listen for PK invites
+    subscribePKInvites();
+    console.log('[Cloud] Logged in as',cloudProfile?.nickname);
   }
 }
 
 // ==================== INIT ====================
 render();
-initCloudSync();
+initSupabaseSession();
 </script>
 </body>
 </html>
