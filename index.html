@@ -1958,6 +1958,7 @@ function showToast(msg) {
 }
 
 function render() {
+  try {
   if (challengeData && currentPage === 'home') {
     // 有远程挑战，自动跳转
     renderChallengeAccept();
@@ -1974,6 +1975,13 @@ function render() {
     case 'setup': renderSetup(); break;
   }
   renderBottomNav();
+  } catch(e) {
+    console.error('[Render] 渲染失败:', e);
+    alert('页面渲染出错: ' + e.message);
+    // 降级：显示最简页面
+    var app = document.getElementById('app');
+    if(app) app.innerHTML = '<div style="padding:40px;color:#fff">页面渲染出错，请刷新。错误信息: ' + e.message + '</div>';
+  }
 }
 
 function renderBottomNav() {
@@ -3745,7 +3753,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 let _supabase = null;
 let _supabaseAvailable = false;
+const DISABLE_CLOUD = true; // 临时禁用云端功能，排查黑屏问题
 function getSupabase() {
+  if (DISABLE_CLOUD) return null;
   if (!_supabase && window.supabase) {
     try {
       _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4114,7 +4124,9 @@ async function initSupabaseSession(){
 // ==================== INIT ====================
 render();
 // 延迟初始化云端（给CDN加载留时间）
-setTimeout(function(){ initSupabaseSession(); }, 1500);
+// 临时注释：排查黑屏问题
+// setTimeout(function(){ initSupabaseSession(); }, 1500);
+console.log('[Init] 页面初始化完成（云端初始化已禁用）');
 </script>
 </body>
 </html>
