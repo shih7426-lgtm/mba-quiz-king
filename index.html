@@ -3753,7 +3753,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 let _supabase = null;
 let _supabaseAvailable = false;
-const DISABLE_CLOUD = true; // 临时禁用云端功能，排查黑屏问题
+const DISABLE_CLOUD = false; // 云端功能开关（国内网络不可达时会自动降级）
 function getSupabase() {
   if (DISABLE_CLOUD) return null;
   if (!_supabase && window.supabase) {
@@ -3776,10 +3776,13 @@ let _pkChannel = null;
 
 // ---- 网络请求超时包装器 ----
 function withTimeout(promise, ms) {
+  var sec = Math.round(ms / 1000);
   return Promise.race([
     promise,
     new Promise(function(_, reject) {
-      setTimeout(function() { reject(new Error('timeout:' + ms)); }, ms);
+      setTimeout(function() {
+        reject(new Error('网络超时（' + sec + '秒）。请检查网络连接，或使用本地模式刷题'));
+      }, ms);
     })
   ]);
 }
@@ -4125,9 +4128,7 @@ async function initSupabaseSession(){
 // ==================== INIT ====================
 render();
 // 延迟初始化云端（给CDN加载留时间）
-// 临时注释：排查黑屏问题
-// setTimeout(function(){ initSupabaseSession(); }, 1500);
-console.log('[Init] 页面初始化完成（云端初始化已禁用）');
+setTimeout(function(){ initSupabaseSession(); }, 1500);
 </script>
 </body>
 </html>
